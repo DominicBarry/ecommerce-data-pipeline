@@ -8,7 +8,7 @@ source_event_date = "2010-12-01"
 load_date = datetime.now(timezone.utc).date()
 source_file = "data/Online_Retail.xlsx"
 project_id = "ecommerce-events-data-pipeline"
-dataset_id = "ecommerce_events_sandbox"
+dataset_id = "ecommerce_events"
 table_id = "raw_events"
 
 # Convert source_event_date once
