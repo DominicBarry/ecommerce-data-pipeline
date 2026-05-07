@@ -1,6 +1,7 @@
--- 01_create_raw_events.sql
--- Raw events table - populated by Python ingestion script (src/ingestion.py)
+-- Creates raw_events table for initial e-commerce transaction ingestion populated by Python ingestion script (src/ingestion.py)
 -- Partitioned by load_date for incremental loading
+-- Source: Online Retail dataset
+-- Layer: raw
 
 CREATE TABLE IF NOT EXISTS `ecommerce-events-data-pipeline.ecommerce_events.raw_events`
 (
