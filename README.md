@@ -29,7 +29,7 @@ Building a production-like data pipeline from a static e-commerce transaction da
 **Learnings:**
 - Basic data hygiene (trimming, type casting) should happen at ingestion
 - Metadata is cheap to add and valuable for debugging
-- Python + pandas is effective for small-to-medium file processing
+- Python + pandas worked well for batch ingestion and transformation of this dataset
 
 ---
 
