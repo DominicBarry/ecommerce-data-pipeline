@@ -92,6 +92,53 @@ Building a production-like data pipeline from a static e-commerce transaction da
 
 ---
 
+### Week 3: Introduce dbt ✅
+
+**What I Built:**
+
+**dbt Project Setup:**
+- Installed dbt-bigquery and initialized dbt project
+- Configured connection to BigQuery (oauth, EU region, 4 threads)
+- Created `sources.yml` to reference raw_events table
+
+**dbt Models:**
+Converted all Week 2 SQL transformations into managed dbt models:
+- `stg_events.sql` - Staging layer with data quality flags
+- `dim_products.sql` - Product dimension
+- `dim_customers.sql` - Customer dimension (excludes NULLs)
+- `fct_order_lines.sql` - Line-level transaction detail
+- `fct_orders.sql` - Aggregated order headers
+
+**Key Decisions:**
+
+1. **Sources vs hardcoded table paths**:
+   - Defined raw_events in `sources.yml` using `{{ source() }}`
+   - Makes code portable across environments
+   - Enables data lineage tracking
+
+2. **Refs for dependencies**:
+   - Used `{{ ref('stg_events') }}` instead of hardcoded paths
+   - dbt automatically determines run order based on dependencies
+   - Single source of truth for table locations
+
+3. **Materialization strategy**:
+   - All models materialized as `table` (not views)
+   - Facts partitioned by load_date for query performance
+   - Dimensions not partitioned (small, queried by key)
+
+4. **Started with full refresh**:
+   - All models rebuild from scratch on each run
+   - Simpler to implement and validate
+   - Incremental loading deferred to Week 6
+
+**Learnings:**
+- dbt separation of concerns: config (how to build) vs logic (what to build)
+- Build SQL transformations first, then move to dbt for governance
+- `{{ config() }}` and `{{ ref() }}` are the core dbt syntax for model management
+- Profile credentials stored globally (~/.dbt/), not in project repo
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)
@@ -99,6 +146,8 @@ Building a production-like data pipeline from a static e-commerce transaction da
     [Python Ingestion Script]
         ↓
     raw_events (partitioned)
+        ↓
+    [dbt models]
         ↓
     stg_events (cleaned + flagged)
         ↓
@@ -116,15 +165,16 @@ Building a production-like data pipeline from a static e-commerce transaction da
 3. **Slowly changing dimensions**: Products/customers assumed static for now - no SCD2 tracking yet
 4. **Incremental loading strategy**: Currently loading single dates - need to handle late-arriving data
 5. **Data quality thresholds**: At what point do quality issues warrant pipeline alerts?
+6. **dbt testing strategy**: Which data quality checks should be enforced vs warned?
 
 ---
 
 ## Next Steps
 
-**Week 3:** Migrate SQL transformations into dbt
-- Convert manual SQL scripts to dbt models
-- Add tests for data quality
-- Establish dependencies between models
+**Week 4:** Add dbt tests and refine data model structure
+- Add schema tests (not_null, unique, relationships)
+- Improve model organization and naming
+- Document models and columns
 
 ---
 
@@ -142,6 +192,17 @@ Building a production-like data pipeline from a static e-commerce transaction da
     │   ├── 04_create_dim_customers.sql
     │   ├── 05_create_fct_order_lines.sql
     │   └── 06_create_fct_orders.sql
+    ├── ecommerce_dbt/
+    │   ├── models/
+    │   │   ├── staging/
+    │   │   │   ├── sources.yml
+    │   │   │   ├── stg_events.sql
+    │   │   │   ├── dim_products.sql
+    │   │   │   ├── dim_customers.sql
+    │   │   │   ├── fct_order_lines.sql
+    │   │   │   └── fct_orders.sql
+    │   ├── dbt_project.yml
+    │   └── ...
     ├── README.md
     ├── requirements.txt
     └── .gitignore
@@ -154,4 +215,5 @@ Building a production-like data pipeline from a static e-commerce transaction da
 - **Google BigQuery** - Cloud data warehouse
 - **Pandas** - Data manipulation
 - **SQL** - Data transformation
-- Coming: **dbt** (data transformation), **Airflow** (orchestration)
+- **dbt** - Data transformation and testing framework
+- Coming: **Airflow** (orchestration)
