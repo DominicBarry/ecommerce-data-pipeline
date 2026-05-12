@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: ecommerce_events
+    database: ecommerce-events-data-pipeline
+    schema: ecommerce_events
+    tables:
+      - name: raw_events
