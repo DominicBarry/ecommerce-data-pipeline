@@ -1,0 +1,45 @@
+version: 2
+
+models:
+    - name: fct_order_lines
+      columns:
+        - name: invoice_no
+          tests:
+            - not_null
+        - name: stock_code
+          tests:
+            - not_null
+        - name: invoice_date
+          tests:
+            - not_null
+        - name: quantity
+          tests:
+            - not_null
+        - name: unit_price
+          tests:
+            - not_null
+        - name: line_value
+          tests:
+            - not_null
+        - name: load_date
+          tests:
+            - not_null
+
+    - name: fct_orders
+      columns:
+        - name: invoice_no
+          tests:
+            - not_null
+            - unique
+        - name: invoice_date
+          tests:
+            - not_null
+        - name: order_total
+          tests:
+            - not_null
+        - name: order_quantity
+          tests:
+            - not_null
+        - name: load_date
+          tests:
+            - not_null
