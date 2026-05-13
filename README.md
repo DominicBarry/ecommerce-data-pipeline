@@ -139,6 +139,53 @@ Converted all Week 2 SQL transformations into managed dbt models:
 
 ---
 
+### Week 4: Data Modelling & Tests ✅
+
+**What I Built:**
+
+**Model Organization:**
+Restructured dbt project into layered architecture:
+- `staging/` - Interface to raw data (stg_events)
+- `marts/dimensions/` - Business entities (dim_customers, dim_products)
+- `marts/facts/` - Business events (fct_order_lines, fct_orders)
+
+**Data Quality Tests:**
+Added 22 dbt tests across all models:
+- **Staging (4 tests):** Validated critical fields (invoice_no, stock_code, invoice_date, load_date) are not null
+- **Dimensions (5 tests):** Primary keys are unique and not null; required attributes present
+- **Facts (13 tests):** All critical fields validated for completeness
+
+**Key Decisions:**
+
+1. **Layered model structure**:
+   - Staging = clean interface to raw data
+   - Marts = business-oriented layer for analysis
+   - Clear separation makes it obvious where new models belong
+
+2. **Test strategy - conservative approach**:
+   - Only test conditions that should never be violated
+   - Primary keys: not_null + unique
+   - Foreign keys: not_null (except customer_id in facts - guests allowed)
+   - Skip testing obvious things (data types - BigQuery enforces these)
+
+3. **Schema files by layer**:
+   - Separate schema.yml in each folder (staging, dimensions, facts)
+   - Tests live close to the models they validate
+   - Easier to maintain as project grows
+
+4. **What we didn't test**:
+   - customer_id in facts (NULLs valid for guest purchases)
+   - description in dim_products (8 known nulls exist, not sure if problematic)
+   - Data types (redundant - table creation enforces these)
+   - Business logic calculations (deferred - can add custom tests later if needed)
+
+**Learnings:**
+- Start with simple tests (not_null, unique) - they catch most issues
+- Don't test everything - focus on what breaks downstream if violated
+- Organized folder structure pays off immediately when adding tests
+- dbt's `--select` flag makes it easy to run subset of tests during development
+
+---
 ## Current Architecture
 
     Source Data (Excel)
@@ -149,12 +196,16 @@ Converted all Week 2 SQL transformations into managed dbt models:
         ↓
     [dbt models]
         ↓
-    stg_events (cleaned + flagged)
-        ↓
-        ├── dim_products
-        ├── dim_customers
-        ├── fct_order_lines
-        └── fct_orders
+    staging/
+        └── stg_events (cleaned + flagged)
+            ↓
+        marts/
+            ├── dimensions/
+            │   ├── dim_customers
+            │   └── dim_products
+            └── facts/
+                ├── fct_order_lines
+                └── fct_orders
 
 ---
 
@@ -165,16 +216,18 @@ Converted all Week 2 SQL transformations into managed dbt models:
 3. **Slowly changing dimensions**: Products/customers assumed static for now - no SCD2 tracking yet
 4. **Incremental loading strategy**: Currently loading single dates - need to handle late-arriving data
 5. **Data quality thresholds**: At what point do quality issues warrant pipeline alerts?
-6. **dbt testing strategy**: Which data quality checks should be enforced vs warned?
+6. **Custom tests**: Should we add tests for business logic (e.g., line_value = quantity × unit_price)?
+7. **Product descriptions**: 8 products have NULL descriptions - acceptable or data quality issue?
 
 ---
 
 ## Next Steps
 
-**Week 4:** Add dbt tests and refine data model structure
-- Add schema tests (not_null, unique, relationships)
-- Improve model organization and naming
-- Document models and columns
+**Week 5:** Orchestration with Airflow
+- Set up Airflow environment
+- Create DAG to run ingestion script + dbt models
+- Schedule pipeline execution
+- Add basic error handling and logging
 
 ---
 
@@ -195,12 +248,18 @@ Converted all Week 2 SQL transformations into managed dbt models:
     ├── ecommerce_dbt/
     │   ├── models/
     │   │   ├── staging/
-    │   │   │   ├── sources.yml
     │   │   │   ├── stg_events.sql
-    │   │   │   ├── dim_products.sql
-    │   │   │   ├── dim_customers.sql
-    │   │   │   ├── fct_order_lines.sql
-    │   │   │   └── fct_orders.sql
+    │   │   │   ├── sources.yml
+    │   │   │   └── schema.yml
+    │   │   └── marts/
+    │   │       ├── dimensions/
+    │   │       │   ├── dim_customers.sql
+    │   │       │   ├── dim_products.sql
+    │   │       │   └── schema.yml
+    │   │       └── facts/
+    │   │           ├── fct_order_lines.sql
+    │   │           ├── fct_orders.sql
+    │   │           └── schema.yml
     │   ├── dbt_project.yml
     │   └── ...
     ├── README.md
@@ -215,5 +274,5 @@ Converted all Week 2 SQL transformations into managed dbt models:
 - **Google BigQuery** - Cloud data warehouse
 - **Pandas** - Data manipulation
 - **SQL** - Data transformation
-- **dbt** - Data transformation and testing framework
+- **dbt** - Data transformation, testing, and documentation framework
 - Coming: **Airflow** (orchestration)
