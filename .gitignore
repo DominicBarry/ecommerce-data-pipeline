@@ -7,3 +7,12 @@ logs/
 *.log
 target/
 dbt_packages/
+
+# Airflow
+airflow/logs/
+airflow/*.db
+airflow/*.db-shm
+airflow/*.db-wal
+airflow/*.pid
+airflow/*.log
+airflow/simple_auth_manager_passwords.json.generated
