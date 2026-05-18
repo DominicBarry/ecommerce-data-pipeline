@@ -27,7 +27,7 @@ Building a production-like data pipeline from a static e-commerce transaction da
 - **Data type standardization**: Ensured consistent types before loading to BigQuery
 
 **Learnings:**
-- Basic data hygiene (trimming, type casting) should happen at ingestion
+- Basic data type standardization should happen at ingestion; data cleaning (trimming, casing) happens in staging
 - Metadata is cheap to add and valuable for debugging
 - Python + pandas worked well for batch ingestion and transformation of this dataset
 
