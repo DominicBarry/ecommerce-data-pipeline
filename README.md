@@ -186,9 +186,46 @@ Added 22 dbt tests across all models:
 - dbt's `--select` flag makes it easy to run subset of tests during development
 
 ---
+
+### Week 5 — Orchestration (Airflow)
+
+**Status:** ✅ Complete
+
+#### What I Built
+- Set up local Airflow environment using `airflow standalone`
+- Created `ecommerce_etl` DAG with two tasks:
+  1. `run_ingestion` - Executes Python ingestion script
+  2. `run_dbt` - Runs dbt models
+- Configured task dependencies (ingestion → dbt)
+- Implemented scheduling with cron syntax
+- Configured Airflow timezone to `Europe/London` (BST)
+
+#### Key Learnings
+- DAG structure: imports, DAG definition, tasks, dependencies
+- TaskFlow API and `@task` decorator for cleaner code
+- Backfilling behavior (catchup from start_date)
+- Granular logging for debugging (task-level logs)
+- Modularity enables deterministic, idempotent pipelines
+- BashOperator requires: navigate to directory + activate venv + run command
+- Cron format for scheduling (minute hour day month day_of_week)
+- Airflow scheduler runs continuously, checking DAG schedules every few seconds
+
+#### Files Created
+- `airflow/dags/ecommerce_pipeline.py` - Production DAG
+- `airflow/airflow.cfg` - Airflow configuration
+
+#### Notes
+- Using local Airflow for learning (not cloud deployment)
+- Manual trigger mode suitable for development; scheduling works but requires Airflow running 24/7
+- Week 6 will implement incremental loading and deduplication
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)
+        ↓
+    [Airflow Orchestration]
         ↓
     [Python Ingestion Script]
         ↓
@@ -223,11 +260,11 @@ Added 22 dbt tests across all models:
 
 ## Next Steps
 
-**Week 5:** Orchestration with Airflow
-- Set up Airflow environment
-- Create DAG to run ingestion script + dbt models
-- Schedule pipeline execution
-- Add basic error handling and logging
+**Week 6:** Incremental Loading & Deduplication
+- Implement date parameter passing to ingestion script
+- Add deduplication logic to handle overlapping loads
+- Update DAG to process dates incrementally
+- Handle late-arriving data scenarios
 
 ---
 
@@ -262,6 +299,11 @@ Added 22 dbt tests across all models:
     │   │           └── schema.yml
     │   ├── dbt_project.yml
     │   └── ...
+    ├── airflow/
+    │   ├── dags/
+    │   │   └── ecommerce_pipeline.py
+    │   ├── airflow.cfg
+    │   └── logs/
     ├── README.md
     ├── requirements.txt
     └── .gitignore
@@ -275,4 +317,4 @@ Added 22 dbt tests across all models:
 - **Pandas** - Data manipulation
 - **SQL** - Data transformation
 - **dbt** - Data transformation, testing, and documentation framework
-- Coming: **Airflow** (orchestration)
+- **Apache Airflow** - Workflow orchestration and scheduling
