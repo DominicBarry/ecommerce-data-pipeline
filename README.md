@@ -221,6 +221,44 @@ Added 22 dbt tests across all models:
 
 ---
 
+### Week 6 — Incremental Loading & Deduplication
+
+**Status:** ✅ Complete
+
+#### What I Built
+- Modified `ingestion.py` to accept `--date` command-line parameter
+- Implemented deduplication logic in `stg_events` using `ROW_NUMBER()` window function
+- Updated Airflow DAG to pass dynamic dates via `{{ ds }}` template variable
+- Successfully backfilled 5 dates (2010-12-01 to 2010-12-05) using `airflow backfill create`
+
+#### Key Decisions
+
+**Business unique key:** `invoice_no + stock_code + invoice_date`
+- Source data contains genuine duplicates (377 rows across 5 dates)
+- Raw layer accepts everything; deduplication happens in staging
+- `ROW_NUMBER()` partitioned by business key, ordered by `ingested_at DESC`
+- Keeps most recent version when same transaction loaded multiple times
+
+**Incremental loading pattern:**
+- One date at a time (vs loading entire dataset at once)
+- Enables reprocessing individual dates if needed
+- Mirrors production batch job patterns
+- DAG uses `{{ ds }}` for date parameterization
+
+#### Key Learnings
+- Raw layer = append everything; staging = deduplicate and clean
+- `{{ ds }}` is execution date (not "today") - used for backfilling historical data
+- Airflow backfill processes date ranges sequentially
+- Deduplication must account for both source duplicates AND pipeline re-runs
+- Window functions (`ROW_NUMBER()`) elegantly handle deduplication logic
+
+#### Results
+- Loaded 5 dates incrementally: 10,144 rows in raw_events
+- Deduplication reduced to 9,767 rows in stg_events (377 duplicates removed)
+- 2010-12-04 had no source data (0 rows) - pipeline handled gracefully
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)
@@ -251,20 +289,23 @@ Added 22 dbt tests across all models:
 1. **Special stock codes**: Should POST/M/DOT/D/C2 be filtered out entirely or kept for financial reconciliation?
 2. **Negative quantities**: Current approach preserves them - may need separate returns analysis in mart layer
 3. **Slowly changing dimensions**: Products/customers assumed static for now - no SCD2 tracking yet
-4. **Incremental loading strategy**: Currently loading single dates - need to handle late-arriving data
-5. **Data quality thresholds**: At what point do quality issues warrant pipeline alerts?
-6. **Custom tests**: Should we add tests for business logic (e.g., line_value = quantity × unit_price)?
-7. **Product descriptions**: 8 products have NULL descriptions - acceptable or data quality issue?
+4. **Data quality thresholds**: At what point do quality issues warrant pipeline alerts?
+5. **Custom tests**: Should we add tests for business logic (e.g., line_value = quantity × unit_price)?
+6. **Product descriptions**: 8 products have NULL descriptions - acceptable or data quality issue?
 
 ---
 
 ## Next Steps
 
-**Week 6:** Incremental Loading & Deduplication
-- Implement date parameter passing to ingestion script
-- Add deduplication logic to handle overlapping loads
-- Update DAG to process dates incrementally
-- Handle late-arriving data scenarios
+**Week 7:** Documentation & Portfolio
+- Create visual architecture diagram
+- Add screenshots (Airflow UI, BigQuery, dbt lineage)
+- Portfolio page write-up
+
+**Week 8:** Polish & Apply
+- Final repository cleanup
+- Publish portfolio page
+- Begin job applications
 
 ---
 

@@ -1,10 +1,15 @@
 from google.cloud import bigquery
-
 import pandas as pd
 from datetime import datetime, timezone
+import argparse
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Load e-commerce data for a specific date')
+parser.add_argument('--date', required=True, help='Date to load (format: YYYY-MM-DD)')
+args = parser.parse_args()
 
 # Define parameters
-source_event_date = "2010-12-01"
+source_event_date = args.date  # Now comes from command line
 load_date = datetime.now(timezone.utc).date()
 source_file = "data/Online_Retail.xlsx"
 project_id = "ecommerce-events-data-pipeline"

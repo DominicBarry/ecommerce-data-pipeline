@@ -1,46 +1,60 @@
--- dbt model configuration block
--- Tells dbt how to materialize this model and how to partition the resulting table
-{{
-  config(
-    materialized='table',
-    partition_by={
-      "field": "load_date",
-      "data_type": "date"
-    }
-  )
-}}
+{{ config(materialized='table') }}
 
-SELECT
-  -- Original columns with data hygiene
-  TRIM(invoice_no) AS invoice_no,
-  TRIM(stock_code) AS stock_code,
-  TRIM(UPPER(description)) AS description,
-  quantity,
-  invoice_date,
-  unit_price,
-  TRIM(REPLACE(customer_id, '.0', '')) AS customer_id,
-  TRIM(UPPER(country)) AS country,
-  
-  -- Metadata columns (unchanged)
-  ingested_at,
-  source_file,
-  source_row_number,
-  load_date,
-  
-  -- Annotation fields
-  stock_code IN ('POST', 'M', 'DOT', 'D', 'C2') AS is_special_stock_code,
-  description IS NULL AS is_missing_description,
-  quantity IS NULL AS is_missing_quantity,
-  customer_id IS NULL AS is_missing_customer_id,
-  quantity < 0 AS is_negative_quantity,
-  
-  (stock_code IN ('POST', 'M', 'DOT', 'D', 'C2') 
-   OR quantity < 0 
-   OR UPPER(description) LIKE '%DISCOUNT%'
-   OR UPPER(description) LIKE '%POSTAGE%'
-   OR UPPER(description) LIKE '%CARRIAGE%'
-   OR UPPER(description) LIKE '%MANUAL%') AS is_adjustment_like_line,
-  
-  quantity * unit_price AS line_value
-  
-FROM {{ source('ecommerce_events', 'raw_events') }}
+WITH source AS (
+    SELECT * FROM {{ source('ecommerce_events', 'raw_events') }}
+),
+
+deduplicated AS (
+    SELECT *,
+        ROW_NUMBER() OVER (
+            PARTITION BY invoice_no, stock_code, invoice_date 
+            ORDER BY ingested_at DESC
+        ) AS row_num
+    FROM source
+),
+
+cleaned AS (
+    SELECT
+        -- Surrogate key
+        GENERATE_UUID() AS event_id,
+        
+        -- Business keys
+        TRIM(invoice_no) AS invoice_no,
+        TRIM(stock_code) AS stock_code,
+        invoice_date,
+        
+        -- Attributes
+        TRIM(UPPER(description)) AS description,
+        quantity,
+        unit_price,
+        quantity * unit_price AS line_value,
+        REPLACE(TRIM(customer_id), '.0', '') AS customer_id,
+        TRIM(UPPER(country)) AS country,
+        
+        -- Quality flags
+        CASE WHEN quantity < 0 THEN TRUE ELSE FALSE END AS is_negative_quantity,
+        CASE WHEN customer_id IS NULL THEN TRUE ELSE FALSE END AS is_missing_customer_id,
+        CASE WHEN description IS NULL THEN TRUE ELSE FALSE END AS is_missing_description,
+        CASE WHEN unit_price <= 0 THEN TRUE ELSE FALSE END AS is_invalid_price,
+        
+        -- Overall quality flag
+        CASE 
+            WHEN quantity >= 0 
+             AND customer_id IS NOT NULL 
+             AND description IS NOT NULL 
+             AND unit_price > 0 
+            THEN TRUE 
+            ELSE FALSE 
+        END AS is_valid_transaction,
+        
+        -- Metadata
+        ingested_at,
+        source_file,
+        source_row_number,
+        load_date
+        
+    FROM deduplicated
+    WHERE row_num = 1  -- Keep only most recent version of each transaction
+)
+
+SELECT * FROM cleaned
