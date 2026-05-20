@@ -97,7 +97,7 @@ Dataset size manageable, simpler implementation, ensures dimensional consistency
 ---
 
 ## Repository Structure
-
+```
 ecommerce-data-pipeline/
 ├── src/                    # Python ingestion scripts
 ├── ecommerce_dbt/          # dbt models, tests, documentation
@@ -107,7 +107,7 @@ ecommerce-data-pipeline/
 ├── airflow/                # Orchestration DAGs and config
 ├── data/                   # Source data (Excel)
 └── sql/                    # Legacy SQL scripts (pre-dbt)
-
+```
 ---
 
 ## Screenshots
