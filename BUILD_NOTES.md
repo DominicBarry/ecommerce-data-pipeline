@@ -293,19 +293,6 @@ Added 22 dbt tests across all models:
 5. **Custom tests**: Should we add tests for business logic (e.g., line_value = quantity × unit_price)?
 6. **Product descriptions**: 8 products have NULL descriptions - acceptable or data quality issue?
 
----
-
-## Next Steps
-
-**Part 7:** Documentation & Portfolio
-- Create visual architecture diagram
-- Add screenshots (Airflow UI, BigQuery, dbt lineage)
-- Portfolio page write-up
-
-**Part 8:** Polish & Apply
-- Final repository cleanup
-- Publish portfolio page
-- Begin job applications
 
 ---
 
