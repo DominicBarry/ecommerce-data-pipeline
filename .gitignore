@@ -15,4 +15,5 @@ airflow/*.db-shm
 airflow/*.db-wal
 airflow/*.pid
 airflow/*.log
-airflow/simple_auth_manager_passwords.json.generatedairflow/airflow.cfg
+airflow/simple_auth_manager_passwords.json.generated
+airflow/airflow.cfg
