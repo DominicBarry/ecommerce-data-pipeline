@@ -259,6 +259,43 @@ Added 22 dbt tests across all models:
 
 ---
 
+### Incident — Warehouse Tables Expired (Sep 2026)
+
+**Status:** ✅ Resolved
+
+#### What Happened
+Returning to the project after a few months, `dim_customers`, `dim_products` and `stg_events` had disappeared from BigQuery. `raw_events`, `fct_order_lines` and `fct_orders` still existed but held 0 rows.
+
+#### Root Cause
+- The project started in the **BigQuery sandbox**, which sets a 60-day default table expiration and a 60-day default partition expiration on every dataset
+- Billing had since been attached, but the dataset's partition expiration was still set to 60 days
+- **Tables keep the expiration they were created with**, so changing a dataset default doesn't protect existing tables
+- Cloud Audit Logs showed `InternalTableExpired` on `dim_customers` on 2026-07-19, exactly 60 days after the last full dbt run (2026-05-20)
+- **Partition expiration is measured from the partition date, not the load date.** Partitions dated December 2010 were already "expired" when written, so the partitioned tables emptied out
+
+#### How I Diagnosed It
+1. Dataset Details showed "Default partition expiration: 60 days"
+2. Row counts confirmed the partitioned tables were empty
+3. Logs Explorer query on `protoPayload.resourceName:"dim_customers"` found the `InternalTableExpired` system event, confirming an automatic expiry rather than a manual delete
+
+#### Recovery
+1. Cleared the dataset default: `ALTER SCHEMA ... SET OPTIONS (default_partition_expiration_days = NULL)`
+2. Cleared the table-level setting on `raw_events`: `ALTER TABLE ... SET OPTIONS (partition_expiration_days = NULL)`
+3. Refreshed expired Google credentials (`gcloud auth application-default login`); the first ingestion run had failed with `RefreshError: invalid_grant`
+4. Re-ran the Airflow backfill for 2010-12-01 to 2010-12-05 with `--reprocess-behavior completed`, since Airflow skips dates that already have successful runs by default
+5. Ran `dbt run` and `dbt test` once more after the backfill, because the backfill ran all five dates in parallel
+6. Verified row counts matched the original load (10,144 raw / 9,767 staging) and that no table or partition has an expiration set
+
+#### Key Learnings
+- Sandbox defaults delete data silently; check dataset **and** table expiration settings after upgrading
+- Historical partition dates make partition expiration immediately destructive
+- Audit logs turn guesswork into a confirmed root cause
+- Local pipelines left idle need credentials refreshed before they'll run
+- Airflow 3 backfills skip completed dates by default and can ignore `max_active_runs`
+- Keeping dbt as the source of truth turned recovery into a re-run rather than a rebuild
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)
