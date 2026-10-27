@@ -84,6 +84,18 @@ client = bigquery.Client(project=project_id)
 
 table_ref = f"{project_id}.{dataset_id}.{table_id}"
 
+# Idempotent load: remove any rows already loaded for this date, then append.
+# Re-running a date replaces its data instead of duplicating it.
+delete_query = f"DELETE FROM `{table_ref}` WHERE DATE(invoice_date) = @event_date"
+delete_job = client.query(
+    delete_query,
+    job_config=bigquery.QueryJobConfig(
+        query_parameters=[bigquery.ScalarQueryParameter("event_date", "DATE", source_event_date_dt)]
+    ),
+)
+delete_job.result()
+print(f"Deleted {delete_job.num_dml_affected_rows} existing rows for {source_event_date}")
+
 job = client.load_table_from_dataframe(df_filtered, table_ref)
 job.result()
 
