@@ -335,6 +335,30 @@ Raw is partitioned by `load_date` (the run date), so a date can't be replaced by
 
 ---
 
+### Change: Loaded Full Month (Oct 2026)
+
+**Status:** ✅ Complete
+
+#### What Changed
+Backfilled 2010-12-06 to 2010-12-31, so the warehouse now holds all of December 2010 instead of 1–5 Dec.
+
+#### Why
+More data for the business logic tests to validate. Four trading days was too little to show real edge cases.
+
+#### How
+`airflow backfill create --dag-id ecommerce_etl --from-date 2010-12-06 --to-date 2010-12-31 --max-active-runs 1`: 26 runs, one at a time. 10 dates had no trading (11 and 18 Dec, and 24–31 Dec for the Christmas closure) and loaded 0 rows.
+
+#### Result
+- `raw_events`: 42,481 rows (20 trading days)
+- `stg_events`: 41,981 rows (500 exact duplicates removed)
+- All 22 tests pass
+- Both counts matched figures calculated independently from the source file
+
+#### Note
+The DAG's daily schedule is now switched off. Starting Airflow had triggered scheduled runs for 2026 dates, which load nothing. The pipeline is run by backfill or manual trigger.
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)

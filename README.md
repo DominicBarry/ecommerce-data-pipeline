@@ -4,7 +4,7 @@
 
 **Tech Stack:** Python • BigQuery • dbt • Apache Airflow
 
-**Dataset:** [Online Retail Dataset](https://archive.ics.uci.edu/dataset/352/online+retail) - 541,000+ transactions from a UK online retailer (2010-2011)
+**Dataset:** [Online Retail Dataset](https://archive.ics.uci.edu/dataset/352/online+retail) - 541,000+ transactions from a UK online retailer (2010-2011). The pipeline has been run on December 2010 (42,481 rows, 20 trading days); the same backfill process loads any date range.
 
 ---
 
@@ -47,7 +47,7 @@ Raw → Staging → Marts (Dimensions + Facts)
 Ingestion script processes one date at a time rather than loading the entire dataset at once. Enables reprocessing of individual dates, reduces memory footprint, and mirrors production batch job patterns. Airflow orchestrates sequential date processing via backfill commands.
 
 ### ✅ Deduplication Logic
-Source data contains 207 exact duplicate rows across the 5 loaded dates. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by all business columns, keeping the most recent ingestion. This handles both source duplicates and accidental pipeline re-runs, while keeping genuine repeat lines (the same product appearing more than once on an invoice with different quantities). An earlier version used a narrower key and wrongly removed 170 genuine lines; see BUILD_NOTES.md.
+Source data for December 2010 contains 500 exact duplicate rows. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by all business columns, keeping the most recent ingestion. This handles both source duplicates and accidental pipeline re-runs, while keeping genuine repeat lines (the same product appearing more than once on an invoice with different quantities). An earlier version used a narrower key and wrongly removed 170 genuine lines; see BUILD_NOTES.md.
 
 ### ✅ Automated Data Quality Testing
 22 dbt tests validate data integrity across all layers:
