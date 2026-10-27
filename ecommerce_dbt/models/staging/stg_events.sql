@@ -7,8 +7,7 @@ WITH source AS (
 deduplicated AS (
     SELECT *,
         ROW_NUMBER() OVER (
-            PARTITION BY invoice_no, stock_code, invoice_date, description, quantity, unit_price, customer_id, country
-            ORDER BY ingested_at DESC
+            PARTITION BY invoice_no, stock_code, invoice_date, description, quantity, CAST(unit_price AS STRING), customer_id, country            ORDER BY ingested_at DESC
         ) AS row_num
     FROM source
 ),
