@@ -315,6 +315,26 @@ Widened the `PARTITION BY` to all business columns, so only rows identical in ev
 
 ---
 
+### Change: Idempotent Ingestion (Oct 2026)
+
+**Status:** ✅ Complete
+
+#### What Changed
+`ingestion.py` now deletes any rows already in `raw_events` for the date being loaded, then appends. Previously, re-running a date added a second copy to raw, which staging then had to remove.
+
+#### Why
+- Re-running a date should give the same result as running it once
+- Raw should hold one copy of each source row: source duplicates kept, pipeline re-run duplicates not created
+- Makes backfills and reprocessing safe
+
+#### Verified
+Loaded 2010-12-05 twice: 2,725 rows deleted and reloaded each time; `raw_events` stayed at 10,144 and `stg_events` at 9,937.
+
+#### Note
+Raw is partitioned by `load_date` (the run date), so a date can't be replaced by overwriting a partition. A `DELETE` on `DATE(invoice_date)` does the job at this scale.
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)
