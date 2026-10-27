@@ -233,7 +233,7 @@ Added 22 dbt tests across all models:
 
 #### Key Decisions
 
-**Business unique key:** `invoice_no + stock_code + invoice_date`
+**Business unique key:** `invoice_no + stock_code + invoice_date` (changed 27 Oct 2026, see "Fix: Staging Deduplication Key" below)
 - Source data contains genuine duplicates (377 rows across 5 dates)
 - Raw layer accepts everything; deduplication happens in staging
 - `ROW_NUMBER()` partitioned by business key, ordered by `ingested_at DESC`
@@ -254,7 +254,7 @@ Added 22 dbt tests across all models:
 
 #### Results
 - Loaded 5 dates incrementally: 10,144 rows in raw_events
-- Deduplication reduced to 9,767 rows in stg_events (377 duplicates removed)
+- Deduplication reduced to 9,767 rows in stg_events (377 duplicates removed). Corrected 27 Oct 2026 to 9,937: see "Fix: Staging Deduplication Key" below
 - 2010-12-04 had no source data (0 rows) - pipeline handled gracefully
 
 ---
@@ -293,6 +293,25 @@ Returning to the project after a few months, `dim_customers`, `dim_products` and
 - Local pipelines left idle need credentials refreshed before they'll run
 - Airflow 3 backfills skip completed dates by default and can ignore `max_active_runs`
 - Keeping dbt as the source of truth turned recovery into a re-run rather than a rebuild
+
+---
+
+### Fix: Staging Deduplication Key (Oct 2026)
+
+**Status:** ✅ Resolved
+
+#### Problem
+The dedup key in `stg_events` (`invoice_no + stock_code + invoice_date`) assumed one line per product per invoice. The source data breaks that assumption: the same product can appear several times on one invoice with different quantities. Of the 377 rows removed across 5 dates, only 207 were true duplicates. The other 170 were genuine order lines, so quantities and sales were understated.
+
+#### Fix
+Widened the `PARTITION BY` to all business columns, so only rows identical in every column are removed. `unit_price` is cast to STRING because BigQuery can't partition by FLOAT64.
+
+#### Result
+`stg_events` went from 9,767 to 9,937 rows (10,144 raw − 207 exact duplicates). All 22 tests pass.
+
+#### Key Learnings
+- Check a business key against the data before relying on it
+- Existing tests didn't catch this: both fact tables are built from staging, so they agree with each other even when staging is wrong. This is the case for a raw-to-staging reconciliation test
 
 ---
 

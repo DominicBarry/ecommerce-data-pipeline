@@ -9,7 +9,7 @@
 }}
 
 -- Fact table for order line items
--- One row per invoice line (invoice_no + stock_code combination)
+-- One row per source line (the same product can appear more than once on an invoice)
 -- Partitioned by load_date for efficient querying
 
 SELECT
