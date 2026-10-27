@@ -19,7 +19,7 @@
 Python script extracts transactions for a specific date from Excel source, adds metadata (ingested_at, source_file, load_date), and loads to BigQuery raw_events table (partitioned by load_date).
 
 **2. Staging Layer**
-dbt transforms raw data: standardizes formatting (UPPER, TRIM), adds quality flags (negative quantities, missing customer IDs), calculates derived fields (line_value), and deduplicates using window functions (keeping most recent ingestion per business key).
+dbt transforms raw data: standardizes formatting (UPPER, TRIM), adds quality flags (negative quantities, missing customer IDs), calculates derived fields (line_value), and deduplicates using window functions (removing rows that are identical across all business columns, keeping the most recent ingestion).
 
 **3. Marts Layer**
 dbt builds dimensional model:
@@ -47,7 +47,7 @@ Raw → Staging → Marts (Dimensions + Facts)
 Ingestion script processes one date at a time rather than loading the entire dataset at once. Enables reprocessing of individual dates, reduces memory footprint, and mirrors production batch job patterns. Airflow orchestrates sequential date processing via backfill commands.
 
 ### ✅ Deduplication Logic
-Source data contains 377 duplicate transactions. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by business key (invoice_no + stock_code + invoice_date), keeping the most recent ingestion. Handles both source duplicates and accidental pipeline re-runs.
+Source data contains 207 exact duplicate rows across the 5 loaded dates. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by all business columns, keeping the most recent ingestion. This handles both source duplicates and accidental pipeline re-runs, while keeping genuine repeat lines (the same product appearing more than once on an invoice with different quantities). An earlier version used a narrower key and wrongly removed 170 genuine lines; see BUILD_NOTES.md.
 
 ### ✅ Automated Data Quality Testing
 22 dbt tests validate data integrity across all layers:
