@@ -359,6 +359,37 @@ The DAG's daily schedule is now switched off. Starting Airflow had triggered sch
 
 ---
 
+### Extension: Business Logic Tests (Oct 2026)
+
+**Status:** ✅ Complete
+
+#### What I Built
+Six singular tests in `ecommerce_dbt/tests/`, taking the suite from 22 to 28. The original tests check structure (fields present, keys unique); these check the numbers make sense.
+
+| Test | Rule |
+|---|---|
+| `assert_staging_reconciles_to_raw` | Staging rows and total value match raw minus exact duplicates |
+| `assert_line_value_equals_quantity_times_price` | `line_value` = quantity × unit_price |
+| `assert_order_total_matches_line_values` | Each order total equals the sum of its lines; every invoice is in both fact tables |
+| `assert_one_customer_per_invoice` | No invoice has more than one customer, or a mix of known and guest |
+| `assert_order_total_sign_matches_invoice_type` | Non-cancellations can't be negative; "C" invoices can't be positive |
+| `assert_every_invoice_line_has_same_date` | All lines on an invoice share one calendar date |
+
+#### Key Decisions
+- **Reconciliation first:** both fact tables are built from staging, so checking them against each other can't catch a staging error. Only a comparison with raw can.
+- **Test the assumptions the models rely on:** `fct_orders` takes `MAX(customer_id)` and `MAX(invoice_date)` per invoice, which is only safe if each invoice has one customer and one date.
+- **Different method from the model:** the reconciliation test deduplicates with `SELECT DISTINCT`, while staging uses `ROW_NUMBER()`, so the test is an independent check.
+
+#### Verified
+Reintroduced the old dedup key: the reconciliation test failed. Restored it: the test passed. All 28 tests pass on December 2010 (41,981 staging rows).
+
+#### Learnings
+- Tests that only check presence and uniqueness can all pass while the data is wrong
+- Calendar dates need casting from timestamps; lines on one invoice can be minutes apart
+- `COUNT(DISTINCT)` ignores nulls, so a guest/known mix needs its own condition
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)
