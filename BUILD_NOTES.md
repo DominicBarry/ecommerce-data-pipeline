@@ -390,6 +390,29 @@ Reintroduced the old dedup key: the reconciliation test failed. Restored it: the
 
 ---
 
+### Extension: Airflow Validation Step (Nov 2026)
+
+**Status:** ✅ Complete
+
+#### What I Built
+- Added a third DAG task, `run_dbt_test`, so every run is ingest → transform → test
+- Added retries to `run_ingestion` (2 retries, 2 minutes apart)
+- Updated the `BashOperator` import to its Airflow 3 location (`airflow.providers.standard.operators.bash`)
+
+#### Key Decisions
+- **Retries on ingestion only:** a brief connection problem can clear on a retry, but a failed test means the data is wrong, and retrying won't change that.
+- **Short retry delay:** a long delay would hold up a backfill for problems a retry can't fix (such as expired credentials).
+- **Default trigger rule:** tests only run if `dbt run` succeeded, which is what's wanted, so no custom rule is needed.
+
+#### Verified
+- Triggered a run: all three tasks green; test log showed 28 passes
+- Broke a test on purpose: `run_dbt_test` failed and the log named the test; restored it
+
+#### Note
+Airflow runs locally, so tests run whenever the pipeline runs on this machine. In production the same DAG would run on a managed service such as Cloud Composer.
+
+---
+
 ## Current Architecture
 
     Source Data (Excel)
