@@ -50,11 +50,11 @@ Ingestion script processes one date at a time rather than loading the entire dat
 Source data for December 2010 contains 500 exact duplicate rows. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by all business columns, keeping the most recent ingestion. This handles both source duplicates and accidental pipeline re-runs, while keeping genuine repeat lines (the same product appearing more than once on an invoice with different quantities). An earlier version used a narrower key and wrongly removed 170 genuine lines; see BUILD_NOTES.md.
 
 ### ✅ Automated Data Quality Testing
-22 dbt tests validate data integrity across all layers:
-- Primary key uniqueness and completeness
-- Foreign key relationships between facts and dimensions
-- Required field validation
-Tests run automatically after each transformation, failing the pipeline if issues detected.
+28 dbt tests run on every pipeline run:
+- **22 schema tests:** primary key uniqueness and completeness, required fields
+- **6 business logic tests:** staging reconciles to raw, line values and order totals add up, one customer and one date per invoice, totals have the right sign for the invoice type
+
+Airflow runs the tests as the final pipeline step (ingest → transform → test). If any test fails, the run fails before the data is used.
 
 ### ✅ Workflow Orchestration
 Airflow DAG coordinates ingestion and transformation tasks with proper dependency management. Supports manual triggers, scheduled runs, and historical backfilling. Task-level logging enables granular debugging.
@@ -118,7 +118,7 @@ ecommerce-data-pipeline/
 
 ### dbt Lineage Graph
 ![dbt Lineage](screenshots/dbt_lineage.png)
-*Data flow from staging through dimensional model*
+*Ingestion, transformation and testing run in sequence; a failed test fails the run*
 
 ### BigQuery Dimensional Model
 ![BigQuery Tables](screenshots/bigquery_tables.png)
