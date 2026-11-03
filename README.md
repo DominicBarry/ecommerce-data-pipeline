@@ -114,11 +114,11 @@ ecommerce-data-pipeline/
 
 ### Airflow DAG Execution
 ![Airflow DAG](screenshots/airflow_dag.png)
-*Sequential execution of ingestion and dbt tasks*
+*Ingestion, transformation and testing run in sequence; a failed test fails the run*
 
 ### dbt Lineage Graph
 ![dbt Lineage](screenshots/dbt_lineage.png)
-*Ingestion, transformation and testing run in sequence; a failed test fails the run*
+*Data flow from staging through dimensional model*
 
 ### BigQuery Dimensional Model
 ![BigQuery Tables](screenshots/bigquery_tables.png)
