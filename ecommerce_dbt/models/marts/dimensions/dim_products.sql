@@ -13,6 +13,10 @@ SELECT DISTINCT
   FIRST_VALUE(description IGNORE NULLS) OVER (
     PARTITION BY stock_code 
     ORDER BY invoice_date
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING 
+   -- Explicit frame so every row sees the product's full history.
+   -- Without it, the default frame stops at the current row, and products
+   -- whose earliest row has no description came out blank.
   ) AS description
 FROM {{ ref('stg_events') }}
 WHERE stock_code IS NOT NULL
