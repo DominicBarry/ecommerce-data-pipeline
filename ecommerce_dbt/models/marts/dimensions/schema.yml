@@ -2,19 +2,33 @@ version: 2
 
 models:
     - name: dim_customers
+      description: >
+        One row per known customer. Guest purchases (no customer ID)
+        are excluded; they remain in the fact tables.
       columns:
         - name: customer_id
+          description: Unique customer identifier.
           tests:
             - not_null
             - unique
         - name: country
+          description: >
+            The customer's country. If a customer appears with more than one
+            country, the alphabetically last is kept (MAX). This affects
+            8 customers in the full dataset.
           tests:
             - not_null
 
     - name: dim_products
+      description: One row per product (stock_code).
       columns:
         - name: stock_code
+          description: Product code. Unique per product.
           tests:
             - not_null
             - unique
-            
+        - name: description
+          description: >
+            Product name: the earliest non-blank description seen for the
+            product. Blank for products that never have a description
+            (21 in December 2010).

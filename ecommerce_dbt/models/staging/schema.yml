@@ -2,16 +2,24 @@ version: 2
 
 models:
     - name: stg_events
+      description: Cleaned transaction lines from raw_events, one row per source line.
       columns:
         - name: invoice_no
+          description: Invoice number. Prefix "C" marks a cancellation.
           tests:
             - not_null
         - name: stock_code
+          description: >
+              Product code. Usually 5 digits, sometimes with a letter suffix for variants
+              (e.g. 85123A). Special codes such as POST, M and DOT are postage, manual
+              adjustments and fees rather than products.
           tests:
             - not_null
         - name: invoice_date
+          description: Invoice date, the day and time when each transaction was generated
           tests:
             - not_null
         - name: load_date
+          description: Date the ingestion run loaded this row into raw_events (the run date, not the transaction date).
           tests:
             - not_null
