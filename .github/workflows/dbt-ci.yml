@@ -1,0 +1,51 @@
+name: dbt CI
+
+# Run on every push to main
+on:
+  push:
+    branches: [main]
+
+# Allows the workflow to publish the docs to a gh-pages branch
+permissions:
+  contents: write
+
+jobs:
+  build-test-docs:
+    runs-on: ubuntu-latest          # GitHub's temporary Linux machine
+    defaults:
+      run:
+        working-directory: ecommerce_dbt   # "run" steps start inside the dbt folder
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dbt
+        run: pip install dbt-bigquery==1.11.1   # same adapter version as your Mac
+
+      - name: Log in to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}   # the secret from checkpoint 3
+
+      - name: Build models and run tests
+        run: dbt build --profiles-dir ci   # uses ci/profiles.yml → CI dataset
+
+      - name: Generate docs
+        run: dbt docs generate --profiles-dir ci
+
+      - name: Prepare docs site
+        run: |
+          mkdir -p site
+          cp target/index.html target/manifest.json target/catalog.json site/
+
+      - name: Publish docs to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./ecommerce_dbt/site
