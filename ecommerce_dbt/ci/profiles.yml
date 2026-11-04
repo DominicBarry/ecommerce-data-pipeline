@@ -1,0 +1,11 @@
+ecommerce_dbt:
+  target: ci
+  outputs:
+    ci:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      project: ecommerce-events-data-pipeline
+      dataset: ecommerce_events_ci
+      location: EU
+      threads: 4
