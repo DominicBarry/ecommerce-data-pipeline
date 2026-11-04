@@ -8,6 +8,8 @@ Building a production-like data pipeline from a static e-commerce transaction da
 
 **Dataset:** [Online Retail Dataset](https://archive.ics.uci.edu/dataset/352/online+retail) - UK-based online wholesale retailer transactions (2010-2011)
 
+**Docs:** [Live dbt documentation](https://dominicbarry.github.io/ecommerce-data-pipeline/): models, columns, tests and lineage, republished on every push.
+
 ## Progress
 
 ### Part 1: Data Ingestion ✅
@@ -410,6 +412,35 @@ Reintroduced the old dedup key: the reconciliation test failed. Restored it: the
 
 #### Note
 Airflow runs locally, so tests run whenever the pipeline runs on this machine. In production the same DAG would run on a managed service such as Cloud Composer.
+
+---
+
+### Extension: CI/CD and Published Docs (Nov 2026)
+
+**Status:** ✅ Complete
+
+#### What I Built
+- GitHub Actions workflow (`.github/workflows/dbt-ci.yml`): on every push to `main`, runs `dbt build` (models + 28 tests) into a separate `ecommerce_events_ci` dataset, generates the dbt docs and publishes them to GitHub Pages
+- Service account `dbt-ci` (BigQuery Data Editor + Job User); its key is stored as the `GCP_SA_KEY` GitHub secret, never in the repo
+- CI-only dbt profile (`ecommerce_dbt/ci/profiles.yml`) that logs in as the service account and builds into the CI dataset
+- Model and column descriptions in all three `schema.yml` files, plus a project overview page (`models/overview.md`)
+- Live docs: https://dominicbarry.github.io/ecommerce-data-pipeline/
+
+#### Key Decisions
+- **`dbt build` into a separate dataset, not `dbt test`:** testing existing tables only checks the last local run. Rebuilding proves the pushed code works, without touching the real tables.
+- **CI on push to `main`, no branches:** right for a solo project. In a team, CI would run on pull requests, with `main` protected.
+- **Only three files published** (`index.html`, `manifest.json`, `catalog.json`), not the whole `target/` folder.
+
+#### Bug Found While Documenting: `dim_products` Descriptions
+- `FIRST_VALUE(description IGNORE NULLS) OVER (... ORDER BY invoice_date)` used the default window frame, which stops at the current row. Combined with keeping each product's earliest row, products whose first sale had no description came out blank, even when later rows had one.
+- Fixed with an explicit frame: `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
+- Blank descriptions went from 38 to 21 (the products that genuinely never have one). Found by reading the model to document its columns, then confirmed with a count.
+
+#### Learnings
+- Workflow files need a token with the `workflow` scope to push
+- Writing documentation is a review: describing a column meant checking what the code really does
+- Window functions with `ORDER BY` default to a "so far" frame; write the frame explicitly for `FIRST_VALUE` and `LAST_VALUE`
+- Source documentation (UCI) describes the source, not your models; check descriptions against your own code
 
 ---
 
