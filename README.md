@@ -73,7 +73,7 @@ Star schema with 2 dimensions (products, customers) and 2 fact tables (order lin
 Separates descriptive attributes from metrics, enabling efficient aggregation queries. Trade-off: More complex setup, simpler long-term analysis.
 
 **Why deduplicate in staging, not ingestion?**
-Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off: aw keeps source duplicates, so anything reading raw directly must deduplicate.
+Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off: raw keeps source duplicates, so anything reading raw directly must deduplicate.
 
 **Why full-refresh dbt?**
 Dataset size manageable, simpler implementation, ensures dimensional consistency. Trade-off: Longer transforms vs. incremental complexity.
@@ -135,6 +135,8 @@ python src/ingestion.py --date 2010-12-01
 cd ecommerce_dbt
 dbt build      # builds all models and runs all tests
 ```
+
+Airflow is installed separately; see the [Airflow installation guide](https://airflow.apache.org/docs/apache-airflow/stable/installation/). This project uses Airflow 3.
 
 dbt needs a profile named `ecommerce_dbt` in `~/.dbt/profiles.yml` (BigQuery, `oauth`, dataset `ecommerce_events`).
 
