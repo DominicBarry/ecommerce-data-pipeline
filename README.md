@@ -44,7 +44,7 @@ Raw → Staging → Marts (Dimensions + Facts)
 ## Key Features
 
 ### ✅ Incremental Data Ingestion
-Ingestion script processes one date at a time rather than loading the entire dataset at once. Enables reprocessing of individual dates, reduces memory footprint, and mirrors production batch job patterns. Re-running a date replaces it (idempotent load). Airflow orchestrates sequential date processing via backfill commands.
+Ingestion script processes one date at a time rather than loading the entire dataset at once. Enables reprocessing of individual dates, and mirrors production batch job patterns. Re-running a date replaces it (idempotent load). Airflow orchestrates sequential date processing via backfill commands.
 
 ### ✅ Deduplication Logic
 Source data for December 2010 contains 500 exact duplicate rows. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by all business columns, keeping the most recent ingestion. This handles both source duplicates and accidental pipeline re-runs, while keeping genuine repeat lines (the same product appearing more than once on an invoice with different quantities). An earlier version used a narrower key and wrongly removed 170 genuine lines; see BUILD_NOTES.md.
@@ -73,7 +73,7 @@ Star schema with 2 dimensions (products, customers) and 2 fact tables (order lin
 Separates descriptive attributes from metrics, enabling efficient aggregation queries. Trade-off: More complex setup, simpler long-term analysis.
 
 **Why deduplicate in staging, not ingestion?**
-Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off:
+Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off: aw keeps source duplicates, so anything reading raw directly must deduplicate.
 
 **Why full-refresh dbt?**
 Dataset size manageable, simpler implementation, ensures dimensional consistency. Trade-off: Longer transforms vs. incremental complexity.
@@ -93,6 +93,8 @@ Dataset size manageable, simpler implementation, ensures dimensional consistency
 | Transformation | dbt | SQL-based transformations, testing, documentation |
 | Orchestration | Apache Airflow | Workflow scheduling and monitoring |
 | Version Control | Git | Code management |
+| CI/CD | GitHub Actions | Builds and tests every push in a separate dataset |
+| Documentation | dbt docs + GitHub Pages | Model, column and lineage docs, republished on every push |
 
 ---
 
