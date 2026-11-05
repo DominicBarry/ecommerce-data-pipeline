@@ -1,8 +1,8 @@
 # E-commerce Data Pipeline
 
-> End-to-end batch pipeline: loads e-commerce transactions into BigQuery, transforms them into a tested star schema with dbt, and orchestrates daily loads with Airflow. Built as a portfolio project.
+> End-to-end batch pipeline: loads e-commerce transactions into BigQuery day by day, transforms them into a tested star schema with dbt, and orchestrates it with Airflow. Built as a portfolio project.
 
-**Tech Stack:** Python • BigQuery • dbt • Apache Airflow
+**Tech Stack:** Python • BigQuery • dbt • Apache Airflow • GitHub Actions
 
 **Dataset:** [Online Retail Dataset](https://archive.ics.uci.edu/dataset/352/online+retail) - 541,000+ transactions from a UK online retailer (2010-2011). The pipeline has been run on December 2010 (42,481 rows, 20 trading days); the same backfill process loads any date range.
 
@@ -47,14 +47,12 @@ Raw → Staging → Marts (Dimensions + Facts)
 Loads one date per run, mirroring production batch jobs. Re-running a date replaces it (idempotent load), and Airflow backfills date ranges in sequence.
 
 ### ✅ Deduplication Logic
-Staging removes exact duplicates (500 in December 2010) using `ROW_NUMBER()` over all business columns, covering source duplicates and re-runs while keeping genuine repeat lines. An earlier, narrower key wrongly removed 170 genuine lines; see BUILD_NOTES.md.
+Staging removes exact duplicates (500 in December 2010) using `ROW_NUMBER()` over all business columns, covering source duplicates and re-runs while keeping genuine repeat lines. An earlier, narrower key wrongly removed genuine lines (170 in the original 5-day load); see BUILD_NOTES.md.
 
 ### ✅ Automated Data Quality Testing
-28 dbt tests run on every pipeline run:
+28 dbt tests, run as the final pipeline step; a failure fails the run, flagging bad data as soon as it's loaded:
 - **22 schema tests:** primary key uniqueness and completeness, required fields
 - **6 business logic tests:** staging reconciles to raw, line values and order totals add up, one customer and one date per invoice, totals have the right sign for the invoice type
-
-Airflow runs them as the final pipeline step; a failure stops the run before the data is used.
 
 ### ✅ Workflow Orchestration
 Three dependent tasks: ingest → transform → test. Ingestion retries twice; tests don't, as a failure means bad data, not a temporary fault. Runs are manual or by backfill (daily schedule off, as Airflow runs locally).
@@ -70,10 +68,10 @@ Star schema: 2 dimensions (products, customers) and 2 fact tables (order lines, 
 ## Design Decisions & Trade-offs
 
 **Why dimensional modeling?**
-Separates descriptive attributes from metrics, enabling efficient aggregation queries. Trade-off: More complex setup, simpler long-term analysis.
+Separates descriptive attributes from measures, so common questions need few joins. Trade-off: more modelling up front.
 
 **Why deduplicate in staging, not ingestion?**
-Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off: raw keeps source duplicates, so anything reading raw directly must deduplicate.
+Raw keeps exactly what the source sent, so deduplication rules can change and be re-run. Trade-off: raw keeps source duplicates, so anything reading raw directly must deduplicate.
 
 **Why full-refresh dbt?**
 Rebuilds take seconds at this volume and always match raw. Trade-off: rebuild time grows with data; incremental models would be the next step at scale.
@@ -145,7 +143,7 @@ To run through Airflow instead, set `AIRFLOW_HOME` to the repo's `airflow/` fold
 airflow backfill create --dag-id ecommerce_etl --from-date 2010-12-01 --to-date 2010-12-31 --max-active-runs 1
 ```
 
-Note: the project ID is set in `src/ingestion.py` and `sources.yml`, and the DAG uses local paths, so these need changing to run it elsewhere.
+Note: the project ID is set in `src/ingestion.py`, `sources.yml` and `ci/profiles.yml`, and the DAG uses local paths, so these need changing to run it elsewhere.
 
 ---
 
