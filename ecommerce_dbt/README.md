@@ -1,15 +1,7 @@
-Welcome to your new dbt project!
+# ecommerce_dbt
 
-### Using the starter project
+dbt project for the e-commerce pipeline. See the [main README](../README.md) for the overview and the [live docs](https://dominicbarry.github.io/ecommerce-data-pipeline/) for models, columns, tests and lineage.
 
-Try running the following commands:
-- dbt run
-- dbt test
-
-
-### Resources:
-- Learn more about dbt [in the docs](https://docs.getdbt.com/docs/introduction)
-- Check out [Discourse](https://discourse.getdbt.com/) for commonly asked questions and answers
-- Join the [chat](https://community.getdbt.com/) on Slack for live discussions and support
-- Find [dbt events](https://events.getdbt.com) near you
-- Check out [the blog](https://blog.getdbt.com/) for the latest news on dbt's development and best practices
+Run from this folder:
+- `dbt build`: build all models and run all tests
+- `dbt docs generate && dbt docs serve`: view the docs locally
