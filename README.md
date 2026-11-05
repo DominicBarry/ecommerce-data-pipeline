@@ -1,6 +1,6 @@
 # E-commerce Data Pipeline
 
-> An end-to-end data pipeline that ingests e-commerce transaction data, transforms it through a dimensional warehouse, and orchestrates daily batch processing. Built as a portfolio project to demonstrate incremental loading, deduplication, automated testing, and workflow orchestration using modern data engineering tools.
+> End-to-end batch pipeline: loads e-commerce transactions into BigQuery, transforms them into a tested star schema with dbt, and orchestrates daily loads with Airflow. Built as a portfolio project.
 
 **Tech Stack:** Python • BigQuery • dbt • Apache Airflow
 
@@ -19,7 +19,7 @@
 Python script extracts transactions for a specific date from Excel source, adds metadata (ingested_at, source_file, load_date), and loads to BigQuery raw_events table (partitioned by load_date). Re-running a date replaces it (idempotent load).
 
 **2. Staging Layer**
-dbt transforms raw data: standardizes formatting (UPPER, TRIM), adds quality flags (negative quantities, missing customer IDs), calculates derived fields (line_value), and deduplicates using window functions (removing rows that are identical across all business columns, keeping the most recent ingestion).
+dbt standardizes text (UPPER, TRIM), flags quality issues (negative quantities, missing customer IDs), calculates line_value, and removes exact duplicates.
 
 **3. Marts Layer**
 dbt builds dimensional model:
@@ -44,26 +44,26 @@ Raw → Staging → Marts (Dimensions + Facts)
 ## Key Features
 
 ### ✅ Incremental Data Ingestion
-Ingestion script processes one date at a time rather than loading the entire dataset at once. Enables reprocessing of individual dates, and mirrors production batch job patterns. Re-running a date replaces it (idempotent load). Airflow orchestrates sequential date processing via backfill commands.
+Loads one date per run, mirroring production batch jobs. Re-running a date replaces it (idempotent load), and Airflow backfills date ranges in sequence.
 
 ### ✅ Deduplication Logic
-Source data for December 2010 contains 500 exact duplicate rows. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by all business columns, keeping the most recent ingestion. This handles both source duplicates and accidental pipeline re-runs, while keeping genuine repeat lines (the same product appearing more than once on an invoice with different quantities). An earlier version used a narrower key and wrongly removed 170 genuine lines; see BUILD_NOTES.md.
+Staging removes exact duplicates (500 in December 2010) using `ROW_NUMBER()` over all business columns, covering source duplicates and re-runs while keeping genuine repeat lines. An earlier, narrower key wrongly removed 170 genuine lines; see BUILD_NOTES.md.
 
 ### ✅ Automated Data Quality Testing
 28 dbt tests run on every pipeline run:
 - **22 schema tests:** primary key uniqueness and completeness, required fields
 - **6 business logic tests:** staging reconciles to raw, line values and order totals add up, one customer and one date per invoice, totals have the right sign for the invoice type
 
-Airflow runs the tests as the final pipeline step (ingest → transform → test). If any test fails, the run fails before the data is used.
+Airflow runs them as the final pipeline step; a failure stops the run before the data is used.
 
 ### ✅ Workflow Orchestration
-Airflow runs ingest → transform → test, each step only if the previous one succeeded. Ingestion retries twice on failure; tests don't, as a failed test means bad data, not a temporary fault. Runs are triggered manually or by backfill (the daily schedule is switched off, as Airflow runs locally).
+Three dependent tasks: ingest → transform → test. Ingestion retries twice; tests don't, as a failure means bad data, not a temporary fault. Runs are manual or by backfill (daily schedule off, as Airflow runs locally).
 
 ### ✅ CI/CD and Published Documentation
-Every push to `main` triggers a GitHub Actions workflow that rebuilds all models and runs all 28 tests in a separate CI dataset, so code changes are checked without touching the main tables. If everything passes, it generates the dbt docs and publishes them to GitHub Pages. [View the live docs](https://dominicbarry.github.io/ecommerce-data-pipeline/).
+Every push to `main` runs a GitHub Actions workflow that rebuilds and tests all models in a separate CI dataset, then publishes the dbt docs to GitHub Pages. [View the live docs](https://dominicbarry.github.io/ecommerce-data-pipeline/).
 
 ### ✅ Dimensional Modeling
-Star schema with 2 dimensions (products, customers) and 2 fact tables (order lines, orders). Separates descriptive attributes from metrics, optimizes for analytical queries.
+Star schema: 2 dimensions (products, customers) and 2 fact tables (order lines, orders), with fact tables partitioned by load date.
 
 ---
 
@@ -76,7 +76,7 @@ Separates descriptive attributes from metrics, enabling efficient aggregation qu
 Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off: raw keeps source duplicates, so anything reading raw directly must deduplicate.
 
 **Why full-refresh dbt?**
-Dataset size manageable, simpler implementation, ensures dimensional consistency. Trade-off: Longer transforms vs. incremental complexity.
+Rebuilds take seconds at this volume and always match raw. Trade-off: rebuild time grows with data; incremental models would be the next step at scale.
 
 **Other choices:**
 - Local Airflow (zero cost for learning; production would use cloud)
