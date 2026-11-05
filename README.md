@@ -16,7 +16,7 @@
 ### Data Flow
 
 **1. Ingestion Layer**
-Python script extracts transactions for a specific date from Excel source, adds metadata (ingested_at, source_file, load_date), and loads to BigQuery raw_events table (partitioned by load_date).
+Python script extracts transactions for a specific date from Excel source, adds metadata (ingested_at, source_file, load_date), and loads to BigQuery raw_events table (partitioned by load_date). Re-running a date replaces it (idempotent load).
 
 **2. Staging Layer**
 dbt transforms raw data: standardizes formatting (UPPER, TRIM), adds quality flags (negative quantities, missing customer IDs), calculates derived fields (line_value), and deduplicates using window functions (removing rows that are identical across all business columns, keeping the most recent ingestion).
@@ -34,7 +34,7 @@ Raw → Staging → Marts (Dimensions + Facts)
 
 **Key Design Principles:**
 - Raw layer accepts all data (no filtering)
-- Staging layer cleans and flags issues (preserves all rows)
+- Staging layer cleans and flags issues (removes exact duplicates)
 - Dimensions contain descriptive attributes (who, what, where)
 - Facts contain metrics and foreign keys (how much, when)
 - Quality flags enable filtered analysis without data loss
@@ -44,7 +44,7 @@ Raw → Staging → Marts (Dimensions + Facts)
 ## Key Features
 
 ### ✅ Incremental Data Ingestion
-Ingestion script processes one date at a time rather than loading the entire dataset at once. Enables reprocessing of individual dates, reduces memory footprint, and mirrors production batch job patterns. Airflow orchestrates sequential date processing via backfill commands.
+Ingestion script processes one date at a time rather than loading the entire dataset at once. Enables reprocessing of individual dates, reduces memory footprint, and mirrors production batch job patterns. Re-running a date replaces it (idempotent load). Airflow orchestrates sequential date processing via backfill commands.
 
 ### ✅ Deduplication Logic
 Source data for December 2010 contains 500 exact duplicate rows. Raw layer accepts all data; staging layer deduplicates using `ROW_NUMBER()` window functions partitioned by all business columns, keeping the most recent ingestion. This handles both source duplicates and accidental pipeline re-runs, while keeping genuine repeat lines (the same product appearing more than once on an invoice with different quantities). An earlier version used a narrower key and wrongly removed 170 genuine lines; see BUILD_NOTES.md.
@@ -57,10 +57,13 @@ Source data for December 2010 contains 500 exact duplicate rows. Raw layer accep
 Airflow runs the tests as the final pipeline step (ingest → transform → test). If any test fails, the run fails before the data is used.
 
 ### ✅ Workflow Orchestration
-Airflow DAG coordinates ingestion and transformation tasks with proper dependency management. Supports manual triggers, scheduled runs, and historical backfilling. Task-level logging enables granular debugging.
+Airflow runs ingest → transform → test, each step only if the previous one succeeded. Ingestion retries twice on failure; tests don't, as a failed test means bad data, not a temporary fault. Runs are triggered manually or by backfill (the daily schedule is switched off, as Airflow runs locally).
+
+### ✅ CI/CD and Published Documentation
+Every push to `main` triggers a GitHub Actions workflow that rebuilds all models and runs all 28 tests in a separate CI dataset, so code changes are checked without touching the main tables. If everything passes, it generates the dbt docs and publishes them to GitHub Pages. [View the live docs](https://dominicbarry.github.io/ecommerce-data-pipeline/).
 
 ### ✅ Dimensional Modeling
-Star schema with 2 dimensions (products, customers) and 2 fact tables (order lines, orders). Separates descriptive attributes from metrics, optimizes for analytical queries, and maintains referential integrity through dbt tests.
+Star schema with 2 dimensions (products, customers) and 2 fact tables (order lines, orders). Separates descriptive attributes from metrics, optimizes for analytical queries.
 
 ---
 
@@ -70,10 +73,7 @@ Star schema with 2 dimensions (products, customers) and 2 fact tables (order lin
 Separates descriptive attributes from metrics, enabling efficient aggregation queries. Trade-off: More complex setup, simpler long-term analysis.
 
 **Why deduplicate in staging, not ingestion?**
-Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off: Raw contains duplicates, slight storage increase.
-
-**Why partition by load_date?**
-Enables efficient incremental processing and reprocessing scenarios. Trade-off: Queries by invoice_date span partitions.
+Raw layer = immutable audit trail. Staging handles deduplication, allowing reprocessing with different rules. Trade-off:
 
 **Why full-refresh dbt?**
 Dataset size manageable, simpler implementation, ensures dimensional consistency. Trade-off: Longer transforms vs. incremental complexity.
@@ -99,15 +99,50 @@ Dataset size manageable, simpler implementation, ensures dimensional consistency
 ## Repository Structure
 ```
 ecommerce-data-pipeline/
-├── src/                    # Python ingestion scripts
-├── ecommerce_dbt/          # dbt models, tests, documentation
-│   └── models/
-│       ├── staging/        # Data cleaning and deduplication
-│       └── marts/          # Dimensional model (dims + facts)
-├── airflow/                # Orchestration DAGs and config
+├── .github/workflows/      # CI: build, test and publish docs on every push
+├── src/                    # Python ingestion script
+├── ecommerce_dbt/          # dbt project
+│   ├── models/
+│   │   ├── staging/        # Cleaning and deduplication
+│   │   └── marts/          # Dimensional model (dims + facts)
+│   ├── tests/              # Business logic tests
+│   └── ci/                 # dbt profile used by CI
+├── airflow/dags/           # Orchestration DAG
 ├── data/                   # Source data (Excel)
+├── screenshots/            # Images used in this README
 └── sql/                    # Legacy SQL scripts (pre-dbt)
 ```
+
+## Running It Locally
+
+Requires Python 3.12 and a Google Cloud project with BigQuery (EU location).
+
+```bash
+# 1. Set up the environment
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Log in to Google Cloud
+gcloud auth application-default login
+
+# 3. Create the raw table: run sql/01_create_raw_events.sql in BigQuery
+
+# 4. Load one day and build the warehouse
+python src/ingestion.py --date 2010-12-01
+cd ecommerce_dbt
+dbt build      # builds all models and runs all tests
+```
+
+dbt needs a profile named `ecommerce_dbt` in `~/.dbt/profiles.yml` (BigQuery, `oauth`, dataset `ecommerce_events`).
+
+To run through Airflow instead, set `AIRFLOW_HOME` to the repo's `airflow/` folder, run `airflow standalone`, and backfill a date range:
+```bash
+airflow backfill create --dag-id ecommerce_etl --from-date 2010-12-01 --to-date 2010-12-31 --max-active-runs 1
+```
+
+Note: the project ID is set in `src/ingestion.py` and `sources.yml`, and the DAG uses local paths, so these need changing to run it elsewhere.
+
 ---
 
 ## Screenshots
@@ -129,4 +164,4 @@ ecommerce-data-pipeline/
 ## Contact
 
 Dominic Barry  
-[LinkedIn] • [Portfolio](https://dominicbarry.github.io/portfolio) • [GitHub](https://github.com/DominicBarry)
+[LinkedIn](https://www.linkedin.com/in/dom-barry/) • [Portfolio](https://dominicbarry.github.io/portfolio) • [GitHub](https://github.com/DominicBarry)
