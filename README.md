@@ -110,7 +110,7 @@ ecommerce-data-pipeline/
 ├── airflow/dags/           # Orchestration DAG
 ├── data/                   # Source data (Excel)
 ├── screenshots/            # Images used in this README
-└── sql/                    # Legacy SQL scripts (pre-dbt)
+└── sql/                    # 01 creates the raw table; 02–06 are the original pre-dbt models
 ```
 
 ## Running It Locally

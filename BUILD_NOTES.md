@@ -448,16 +448,16 @@ Airflow runs locally, so tests run whenever the pipeline runs on this machine. I
 
     Source Data (Excel)
         ↓
-    [Airflow Orchestration]
+    [Airflow: ingest → transform → test]
         ↓
-    [Python Ingestion Script]
+    [Python Ingestion Script]  (one date per run; re-running a date replaces it)
         ↓
-    raw_events (partitioned)
+    raw_events (partitioned by load_date)
         ↓
     [dbt models]
         ↓
     staging/
-        └── stg_events (cleaned + flagged)
+        └── stg_events (cleaned, flagged, exact duplicates removed)
             ↓
         marts/
             ├── dimensions/
@@ -466,29 +466,43 @@ Airflow runs locally, so tests run whenever the pipeline runs on this machine. I
             └── facts/
                 ├── fct_order_lines
                 └── fct_orders
+        ↓
+    [dbt tests: 22 schema + 6 business logic]
+
+    CI (GitHub Actions, on every push to main):
+    dbt build into ecommerce_events_ci → dbt docs generate → GitHub Pages
 
 ---
 
-## Uncertainties & Future Decisions
+## Decisions & Open Questions
+
+**Decided**
+
+- **SCD Type 2: not built.** The data doesn't justify it: only 1 of 948 customers in December 2010 changes country, and most product description changes are typo fixes, better handled by keeping one value (Type 1). Price history is already captured in the fact tables.
+- **Incremental dbt models: not built.** A full refresh takes seconds at this volume and always matches raw. Revisit if rebuild time or cost grows.
+- **Custom business logic tests: done.** Six tests; see "Extension: Business Logic Tests".
+
+**Still open**
 
 1. **Special stock codes**: Should POST/M/DOT/D/C2 be filtered out entirely or kept for financial reconciliation?
-2. **Negative quantities**: Current approach preserves them - may need separate returns analysis in mart layer
-3. **Slowly changing dimensions**: Products/customers assumed static for now - no SCD2 tracking yet
-4. **Data quality thresholds**: At what point do quality issues warrant pipeline alerts?
-5. **Custom tests**: Should we add tests for business logic (e.g., line_value = quantity × unit_price)?
-6. **Product descriptions**: 8 products have NULL descriptions - acceptable or data quality issue?
-
+2. **Negative quantities**: Preserved. Cancellations ("C" invoices) are tested to be the only negative totals. Zero-price negatives on ordinary invoices look like stock adjustments (70 rows in December 2010). A separate returns analysis in the mart layer is still open.
+3. **Data quality alerting**: The pipeline fails when a test fails, but nothing alerts anyone. An `on_failure_callback` on the test task would be the next step.
+4. **Product descriptions**: 21 products have no description in December 2010 (125 source rows, all with a zero price). Acceptable, or exclude them as non-products?
+5. **Customers with more than one country**: 1 in December 2010 (customer 12370: Cyprus and Austria). `dim_customers` keeps the alphabetically last (`MAX`), so Cyprus. A genuine move, or a data entry error? Unresolved; 8 customers are affected in the full dataset.
 
 ---
 
 ## Project Structure
 
     ecommerce-data-pipeline/
+    ├── .github/
+    │   └── workflows/
+    │       └── dbt-ci.yml
     ├── data/
     │   └── Online_Retail.xlsx
     ├── src/
     │   └── ingestion.py
-    ├── sql/
+    ├── sql/                          (01 creates the raw table; 02–06 are the original pre-dbt models)
     │   ├── 01_create_raw_events.sql
     │   ├── 02_create_stg_events.sql
     │   ├── 03_create_dim_products.sql
@@ -497,6 +511,7 @@ Airflow runs locally, so tests run whenever the pipeline runs on this machine. I
     │   └── 06_create_fct_orders.sql
     ├── ecommerce_dbt/
     │   ├── models/
+    │   │   ├── overview.md
     │   │   ├── staging/
     │   │   │   ├── stg_events.sql
     │   │   │   ├── sources.yml
@@ -510,14 +525,25 @@ Airflow runs locally, so tests run whenever the pipeline runs on this machine. I
     │   │           ├── fct_order_lines.sql
     │   │           ├── fct_orders.sql
     │   │           └── schema.yml
+    │   ├── tests/
+    │   │   ├── assert_staging_reconciles_to_raw.sql
+    │   │   ├── assert_line_value_equals_quantity_times_price.sql
+    │   │   ├── assert_order_total_matches_line_values.sql
+    │   │   ├── assert_one_customer_per_invoice.sql
+    │   │   ├── assert_order_total_sign_matches_invoice_type.sql
+    │   │   └── assert_every_invoice_line_has_same_date.sql
+    │   ├── ci/
+    │   │   └── profiles.yml
     │   ├── dbt_project.yml
-    │   └── ...
+    │   └── README.md
     ├── airflow/
     │   ├── dags/
     │   │   └── ecommerce_pipeline.py
-    │   ├── airflow.cfg
-    │   └── logs/
+    │   ├── airflow.cfg               (local, not in Git)
+    │   └── logs/                     (local, not in Git)
+    ├── screenshots/
     ├── README.md
+    ├── BUILD_NOTES.md
     ├── requirements.txt
     └── .gitignore
 
@@ -531,3 +557,5 @@ Airflow runs locally, so tests run whenever the pipeline runs on this machine. I
 - **SQL** - Data transformation
 - **dbt** - Data transformation, testing, and documentation framework
 - **Apache Airflow** - Workflow orchestration and scheduling
+- **GitHub Actions** - CI: builds and tests every push
+- **GitHub Pages** - Hosts the published dbt docs
