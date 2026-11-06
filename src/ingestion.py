@@ -22,7 +22,7 @@ source_event_date_dt = pd.to_datetime(source_event_date).date()
 # Load the Excel file
 df = pd.read_excel(source_file)
 
-print(f"Total rows loaded: {len(df)}")
+print(f"Total rows read from source file: {len(df)}")
 
 # Convert InvoiceDate to datetime
 df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
