@@ -4,7 +4,7 @@ An end-to-end data engineering project demonstrating modern practices using Pyth
 
 ## Project Overview
 
-Building a production-like data pipeline from a static e-commerce transaction dataset, treating it as streaming event data to simulate real-world batch processing scenarios.
+Building a production-like data pipeline from a static e-commerce transaction dataset, treating it as daily event data to simulate real-world batch processing.
 
 **Dataset:** [Online Retail Dataset](https://archive.ics.uci.edu/dataset/352/online+retail) - UK-based online wholesale retailer transactions (2010-2011)
 
